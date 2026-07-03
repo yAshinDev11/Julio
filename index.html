@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Player Fullscreen Interativo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        .background-blur-gradient {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, #000000, #151110, #2c1a15, #0a0808, #000000);
+            background-size: 400% 400%;
+            animation: moveGradient 12s ease infinite alternate;
+            z-index: 1;
+        }
+
+        @keyframes moveGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .player-main-card {
+            width: 100vw;
+            min-height: 100vh;
+            background-color: rgba(18, 18, 18, 0.4); 
+            backdrop-filter: blur(60px);
+            -webkit-backdrop-filter: blur(60px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 24px 10px 24px;
+        }
+
+        .header-title-wrapper { flex-grow: 1; text-align: center; }
+        .header-subtitle { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #cccccc; font-weight: 600; }
+
+        .floating-green-btn {
+            position: absolute; left: -15px; top: 140px;
+            background-color: #1ed760; width: 60px; height: 45px;
+            border-radius: 0 25px 25px 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; z-index: 10;
+        }
+
+        .album-art-container {
+            padding: 10px 24px; display: flex; justify-content: center; align-items: center; flex-grow: 1; max-height: 45vh;
+        }
+
+        .album-art-large {
+            height: 100%; max-height: 340px; aspect-ratio: 1 / 1; border-radius: 12px; object-fit: cover;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .playing .album-art-large { transform: scale(1.03); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6); }
+
+        .lyrics-highlight { padding: 20px 24px; }
+        .lyrics-text { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px; text-align: left; }
+
+        .video-toggle-btn {
+            display: inline-flex; align-items: center; gap: 6px; background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            margin-left: 24px; margin-bottom: 24px; width: fit-content; cursor: pointer;
+        }
+
+        .track-info-container { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; margin-bottom: 20px; }
+        .track-details { display: flex; flex-direction: column; gap: 2px; }
+        .track-title { font-size: 24px; font-weight: 700; color: #ffffff; }
+        .track-artist { font-size: 16px; color: #cccccc; font-weight: 500; }
+        .action-icon { font-size: 30px; color: #ffffff; cursor: pointer; }
+
+        .controls-wrapper { padding: 0 24px; }
+        .progress-container { margin-bottom: 8px; padding: 5px 0; cursor: pointer; }
+        .progress-bar-bg { width: 100%; height: 4px; background-color: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+        .progress-bar-fill { width: 0%; height: 100%; background-color: #ffffff; border-radius: 2px; }
+
+        .time-stamps { display: flex; justify-content: space-between; font-size: 12px; color: #cccccc; font-weight: 500; }
+
+        .media-buttons { display: flex; justify-content: space-between; align-items: center; padding: 15px 0 25px 0; }
+        .media-buttons .material-icons-round { font-size: 30px; color: #ffffff; cursor: pointer; }
+        
+        .media-buttons .play-pause-btn {
+            width: 64px; height: 64px; background-color: #ffffff; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .media-buttons .play-pause-btn .material-icons-round { color: #000000; font-size: 38px; }
+        .play-pause-btn .icon-play { margin-left: 4px; }
+        .play-pause-btn .icon-pause { display: none; }
+
+        .footer-device-row { display: flex; justify-content: space-between; align-items: center; padding: 0 24px; margin-bottom: 20px; }
+        .device-connection { display: flex; align-items: center; gap: 6px; color: #1ed760; font-size: 12px; font-weight: 600; }
+        .footer-right-actions { display: flex; align-items: center; gap: 20px; color: #cccccc; }
+
+        .lyrics-drawer-container {
+            background-color: #4c1c0c; border-radius: 20px; padding: 24px; margin: 0 24px 24px 24px;
+            display: flex; flex-direction: column; gap: 24px; cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); max-height: 380px; overflow: hidden;
+        }
+        .lyrics-drawer-container.expanded { position: fixed; top: 0; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 0; max-height: 100vh; height: 100vh; z-index: 999; overflow-y: auto; padding-top: 30px; }
+        .lyrics-body-scroller { display: flex; flex-direction: column; gap: 20px; padding-bottom: 40px; }
+        .lyric-line { font-size: 24px; font-weight: 700; line-height: 1.35; color: rgba(0, 0, 0, 0.45); letter-spacing: -0.6px; }
+        .lyric-line.active { color: #ffffff; }
+        .lyrics-drawer-container:not(.expanded) .lyric-line:nth-child(n+5) { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="background-blur-gradient"></div>
+
+    <audio id="audio-track" src="musica.mp3" preload="metadata"></audio>
+
+    <div class="player-main-card" id="card-wrapper">
+        <div class="player-header">
+            <span class="material-icons-round">expand_more</span>
+            <div class="header-title-wrapper"><div class="header-subtitle">Tocando do GitHub</div></div>
+            <span class="material-icons-round">more_vert</span>
+        </div>
+
+        <div class="floating-green-btn"><span class="material-icons-round" style="color: white; font-size: 18px;">more_horiz</span></div>
+
+        <div class="album-art-container">
+            <img class="album-art-large" src="https://i.postimg.cc/85bWv40s/mitski-cover.jpg" alt="Capa do Álbum">
+        </div>
+
+        <div class="lyrics-highlight">
+            <p class="lyrics-text" id="highlight-text">Clique no botão de Play abaixo para iniciar</p>
+        </div>
+
+        <div class="video-toggle-btn"><span class="material-icons-round">slideshow</span>Mudar para vídeo</div>
+
+        <div class="track-info-container">
+            <div class="track-details">
+                <div class="track-title">My Love Mine All Mine</div>
+                <span class="track-artist">Mitski</span>
+            </div>
+            <span class="material-icons-round action-icon">add_circle_outline</span>
+        </div>
+
+        <div class="controls-wrapper">
+            <div class="progress-container" id="progress-timeline">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+            </div>
+            <div class="time-stamps">
+                <span id="current-time">0:00</span>
+                <span id="total-duration">-:--</span>
+            </div>
+
+            <div class="media-buttons">
+                <span class="material-icons-round" style="color:#ccc;">shuffle</span>
+                <span class="material-icons-round">skip_previous</span>
+                <div class="play-pause-btn" id="btn-play-pause">
+                    <span class="material-icons-round icon-play" id="play-icon">play_arrow</span>
+                    <span class="material-icons-round icon-pause" id="pause-icon">pause</span>
+                </div>
+                <span class="material-icons-round">skip_next</span>
+                <span class="material-icons-round" style="color:#ccc;">repeat</span>
+            </div>
+        </div>
+
+        <div class="footer-device-row">
+            <div class="device-connection"><span class="material-icons-round">speaker_group</span>GitHub Pages Ligado</div>
+            <div class="footer-right-actions"><span class="material-icons-round">share</span><span class="material-icons-round">queue_music</span></div>
+        </div>
+
+        <div class="lyrics-drawer-container" id="lyrics-drawer">
+            <div class="lyrics-body-scroller">
+                <p class="lyric-line active">Moon, a hole of light</p>
+                <p class="lyric-line">Through the big hooded tent up high</p>
+                <p class="lyric-line">Here before and after me</p>
+                <p class="lyric-line">Shining down on me</p>
+                <p class="lyric-line">Moon, tell me if I could</p>
+                <p class="lyric-line">Send up my heart to you</p>
+                <p class="lyric-line">So when I die, which I must do</p>
+                <p class="lyric-line">Could it shine down here with you?</p>
+                <p class="lyric-line">'Cause my love is mine, all mine</p>
+                <p class="lyric-line">I love, my, my, mine</p>
+                <p class="lyric-line">Nothing in the world belongs to me</p>
+                <p class="lyric-line">But my love mine, all mine, all mine</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audio = document.getElementById('audio-track');
+        const playPauseBtn = document.getElementById('btn-play-pause');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const cardWrapper = document.getElementById('card-wrapper');
+        const timeline = document.getElementById('progress-timeline');
+        const progressFill = document.getElementById('progress-fill');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalDurationEl = document.getElementById('total-duration');
+        const highlightText = document.getElementById('highlight-text');
+        const lyricsDrawer = document.getElementById('lyrics-drawer');
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds === Infinity) return "0:00";
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        function togglePlayUI(isPlaying) {
+            if (isPlaying) {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+                cardWrapper.classList.add('playing');
+                highlightText.textContent = "Moon, a hole of light";
+            } else {
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+                cardWrapper.classList.remove('playing');
+            }
+        }
+
+        playPauseBtn.addEventListener('click', () => {
+            if (audio.paused) { 
+                audio.play()
+                    .then(() => togglePlayUI(true))
+                    .catch(err => {
+                        console.log("Erro ao reproduzir áudio:", err);
+                        highlightText.textContent = "Erro: Verifica se o ficheiro musica.mp3 está no GitHub!";
+                    });
+            } else { 
+                audio.pause(); 
+                togglePlayUI(false); 
+            }
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            if(!audio.duration) return;
+            const percentage = (audio.currentTime / audio.duration) * 100;
+            progressFill.style.width = `${percentage}%`;
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            totalDurationEl.textContent = formatTime(audio.duration);
+        });
+
+        timeline.addEventListener('click', (e) => {
+            if(!audio.duration) return;
+            const newTime = (e.offsetX / timeline.clientWidth) * audio.duration;
+            audio.currentTime = newTime;
+        });
+
+        lyricsDrawer.addEventListener('click', () => lyricsDrawer.classList.toggle('expanded'));
+    </script>
+</body>
+</html>
