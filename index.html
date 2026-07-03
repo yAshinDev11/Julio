@@ -444,8 +444,6 @@
         .lyric-line.active {
             color: #ffffff; 
         }
-
-        /* A visibilidade das linhas no modo compacto agora é controlada via JS (sincronia com a música) */
     </style>
 </head>
 <body>
@@ -473,7 +471,7 @@
         </div>
 
         <div class="lyrics-highlight">
-            <p class="lyrics-text">Teus olhos guardam um brilho raro...</p>
+            <p class="lyrics-text" id="top-lyric-highlight">Teus olhos guardam um brilho raro...</p>
         </div>
 
         <div class="video-toggle-btn">
@@ -587,14 +585,19 @@
         const progressFill = document.getElementById('progress-fill');
         const currentTimeEl = document.getElementById('current-time');
         const totalDurationEl = document.getElementById('total-duration');
+        const topLyricHighlight = document.getElementById('top-lyric-highlight');
 
+        const lyricsDrawer = document.getElementById('lyrics-drawer');
+        const expandIcon = document.getElementById('expand-icon');
         const lyricLines = Array.from(document.querySelectorAll('.lyric-line'));
+        
         let lyricTimestamps = [];
         let currentActiveIndex = 0;
 
         function computeLyricTimestamps() {
             const duration = audio.duration;
             if (!duration || isNaN(duration)) return;
+            // Divide o tempo total da música igualmente pelo número de linhas da letra
             lyricTimestamps = lyricLines.map((_, i) => (i / lyricLines.length) * duration);
         }
 
@@ -609,30 +612,30 @@
 
         function updateLyricsDisplay(activeIndex) {
             const isExpanded = lyricsDrawer.classList.contains('expanded');
+            
+            // Atualiza o texto em destaque logo acima da capa
+            if(lyricLines[activeIndex]) {
+                topLyricHighlight.textContent = lyricLines[activeIndex].textContent;
+            }
+
             lyricLines.forEach((el, i) => {
                 el.classList.toggle('active', i === activeIndex);
                 if (isExpanded) {
                     el.style.display = '';
                 } else {
-                    const windowStart = Math.max(0, activeIndex - 1);
+                    // Modo compacto: mostra apenas a linha ativa e as próximas 3
+                    const windowStart = Math.max(0, activeIndex);
                     const windowEnd = windowStart + 3;
                     el.style.display = (i >= windowStart && i <= windowEnd) ? '' : 'none';
                 }
             });
-            if (isExpanded) {
+
+            // Só faz o scroll automático se o menu estiver aberto e a música tocando
+            if (isExpanded && !audio.paused) {
                 const activeEl = lyricLines[activeIndex];
                 if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
-
-        audio.addEventListener('timeupdate', () => {
-            if (lyricTimestamps.length !== lyricLines.length) computeLyricTimestamps();
-            const newIndex = getActiveIndexForTime(audio.currentTime);
-            if (newIndex !== currentActiveIndex || lyricLines[newIndex].style.display === 'none') {
-                currentActiveIndex = newIndex;
-                updateLyricsDisplay(currentActiveIndex);
-            }
-        });
 
         function formatTime(seconds) {
             if (isNaN(seconds)) return "0:00";
@@ -641,7 +644,7 @@
             return `${min}:${sec < 10 ? '0' : ''}${sec}`;
         }
 
-        // Interação de abrir/fechar a Letra inteira
+        // Interação de abrir/fechar a Gaveta de Letras
         lyricsDrawer.addEventListener('click', (e) => {
             if (lyricsDrawer.classList.contains('expanded') && e.target.closest('#close-lyrics-btn')) {
                 e.stopPropagation();
@@ -653,11 +656,12 @@
             
             if (!lyricsDrawer.classList.contains('expanded')) {
                 lyricsDrawer.classList.add('expanded');
-                expandIcon.textContent = 'close_fullscreen';
+                expandIcon.textContent = 'close';
                 updateLyricsDisplay(currentActiveIndex);
             }
         });
 
+        // Controle de Play/Pause
         playPauseBtn.addEventListener('click', () => {
             if (audio.paused) {
                 audio.play().catch((err) => {
@@ -674,31 +678,47 @@
             }
         });
 
+        // Sincronização do progresso e das letras durante a reprodução
         audio.addEventListener('timeupdate', () => {
+            // Garante que os tempos estão calculados se a metadata atrasar
+            if (lyricTimestamps.length !== lyricLines.length) computeLyricTimestamps();
+            
+            // Atualiza linha do tempo cinza
             const percentage = (audio.currentTime / audio.duration) * 100;
             progressFill.style.width = `${percentage}%`;
             currentTimeEl.textContent = formatTime(audio.currentTime);
+
+            // Atualiza a letra ativa
+            const newIndex = getActiveIndexForTime(audio.currentTime);
+            if (newIndex !== currentActiveIndex) {
+                currentActiveIndex = newIndex;
+                updateLyricsDisplay(currentActiveIndex);
+            }
         });
 
+        // Monitoramento do carregamento inicial do arquivo
         audio.addEventListener('loadedmetadata', () => {
             totalDurationEl.textContent = formatTime(audio.duration);
             computeLyricTimestamps();
+            updateLyricsDisplay(0);
         });
 
         if (audio.readyState >= 1) {
             totalDurationEl.textContent = formatTime(audio.duration);
             computeLyricTimestamps();
+            updateLyricsDisplay(0);
         }
 
-        audio.addEventListener('error', () => {
-            console.error('Erro ao carregar o áudio. Verifique se "musica.mp3" está na mesma pasta do index.html e se o nome bate exatamente (maiúsculas/minúsculas).');
-        });
-
+        // Evento de clique na linha do tempo para avançar/retroceder
         timeline.addEventListener('click', (e) => {
             const timelineWidth = timeline.clientWidth;
             const clickPositionX = e.offsetX;
             const newTime = (clickPositionX / timelineWidth) * audio.duration;
             audio.currentTime = newTime;
+        });
+
+        audio.addEventListener('error', () => {
+            console.error('Erro crítico: O arquivo "musica.mp3" não foi encontrado ou está corrompido no servidor.');
         });
     </script>
 </body>
