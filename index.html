@@ -445,10 +445,7 @@
             color: #ffffff; 
         }
 
-        /* Esconde linhas extras no modo compacto para manter o visual limpo */
-        .lyrics-drawer-container:not(.expanded) .lyric-line:nth-child(n+5) {
-            display: none;
-        }
+        /* A visibilidade das linhas no modo compacto agora é controlada via JS (sincronia com a música) */
     </style>
 </head>
 <body>
@@ -549,13 +546,31 @@
                     </div>
                 </div>
             </div>
-            <div class="lyrics-body-scroller">
+            <div class="lyrics-body-scroller" id="lyrics-scroller">
                 <p class="lyric-line active">Teus olhos guardam um brilho raro,</p>
                 <p class="lyric-line">que ilumina até o dia mais nublado.</p>
                 <p class="lyric-line">No teu sorriso mora um verão inteiro,</p>
                 <p class="lyric-line">e cada gesto teu é doce e sincero.</p>
-                <p class="lyric-line">Gaby, tua beleza vai além do olhar,</p>
-                <p class="lyric-line">é luz, é alma, é um jeito de encantar.</p>
+                <p class="lyric-line">Tua voz é canção que acalma a alma,</p>
+                <p class="lyric-line">tua presença é abrigo, é calma.</p>
+                <p class="lyric-line">Nos teus passos existe uma leveza,</p>
+                <p class="lyric-line">que transforma o mundo em pura beleza.</p>
+                <p class="lyric-line">Gaby, és jardim que não murcha no inverno,</p>
+                <p class="lyric-line">és luz que atravessa até o mais eterno.</p>
+                <p class="lyric-line">Teu jeito de olhar conta histórias,</p>
+                <p class="lyric-line">escritas em constelações e memórias.</p>
+                <p class="lyric-line">Tua beleza não cabe em espelho algum,</p>
+                <p class="lyric-line">ela mora no teu riso, no teu ser comum.</p>
+                <p class="lyric-line">É simples, é rara, é verdadeira,</p>
+                <p class="lyric-line">como o sol que nasce em cada manhã inteira.</p>
+                <p class="lyric-line">Cada detalhe teu é obra de arte,</p>
+                <p class="lyric-line">de um jeito que ninguém consegue imitar-te.</p>
+                <p class="lyric-line">Gaby, tu és poesia sem precisar de rima,</p>
+                <p class="lyric-line">és a razão que faz o coração subir de estima.</p>
+                <p class="lyric-line">Se o mundo perguntasse o que é ser bela,</p>
+                <p class="lyric-line">eu apontaria pra ti, sem ter cautela.</p>
+                <p class="lyric-line">Pois tua beleza vai além do que se vê,</p>
+                <p class="lyric-line">é luz, é alma, é um jeito de ser você.</p>
             </div>
         </div>
 
@@ -573,8 +588,51 @@
         const currentTimeEl = document.getElementById('current-time');
         const totalDurationEl = document.getElementById('total-duration');
 
-        const lyricsDrawer = document.getElementById('lyrics-drawer');
-        const expandIcon = document.getElementById('expand-icon');
+        const lyricLines = Array.from(document.querySelectorAll('.lyric-line'));
+        let lyricTimestamps = [];
+        let currentActiveIndex = 0;
+
+        function computeLyricTimestamps() {
+            const duration = audio.duration;
+            if (!duration || isNaN(duration)) return;
+            lyricTimestamps = lyricLines.map((_, i) => (i / lyricLines.length) * duration);
+        }
+
+        function getActiveIndexForTime(time) {
+            let idx = 0;
+            for (let i = 0; i < lyricTimestamps.length; i++) {
+                if (time >= lyricTimestamps[i]) idx = i;
+                else break;
+            }
+            return idx;
+        }
+
+        function updateLyricsDisplay(activeIndex) {
+            const isExpanded = lyricsDrawer.classList.contains('expanded');
+            lyricLines.forEach((el, i) => {
+                el.classList.toggle('active', i === activeIndex);
+                if (isExpanded) {
+                    el.style.display = '';
+                } else {
+                    const windowStart = Math.max(0, activeIndex - 1);
+                    const windowEnd = windowStart + 3;
+                    el.style.display = (i >= windowStart && i <= windowEnd) ? '' : 'none';
+                }
+            });
+            if (isExpanded) {
+                const activeEl = lyricLines[activeIndex];
+                if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        audio.addEventListener('timeupdate', () => {
+            if (lyricTimestamps.length !== lyricLines.length) computeLyricTimestamps();
+            const newIndex = getActiveIndexForTime(audio.currentTime);
+            if (newIndex !== currentActiveIndex || lyricLines[newIndex].style.display === 'none') {
+                currentActiveIndex = newIndex;
+                updateLyricsDisplay(currentActiveIndex);
+            }
+        });
 
         function formatTime(seconds) {
             if (isNaN(seconds)) return "0:00";
@@ -589,12 +647,14 @@
                 e.stopPropagation();
                 lyricsDrawer.classList.remove('expanded');
                 expandIcon.textContent = 'open_in_full';
+                updateLyricsDisplay(currentActiveIndex);
                 return;
             }
             
             if (!lyricsDrawer.classList.contains('expanded')) {
                 lyricsDrawer.classList.add('expanded');
                 expandIcon.textContent = 'close_fullscreen';
+                updateLyricsDisplay(currentActiveIndex);
             }
         });
 
@@ -622,10 +682,12 @@
 
         audio.addEventListener('loadedmetadata', () => {
             totalDurationEl.textContent = formatTime(audio.duration);
+            computeLyricTimestamps();
         });
 
         if (audio.readyState >= 1) {
             totalDurationEl.textContent = formatTime(audio.duration);
+            computeLyricTimestamps();
         }
 
         audio.addEventListener('error', () => {
